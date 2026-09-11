@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>ระบบบันทึกผลตรวจสุขภาพเบื้องต้น</title>
+<style>
+/* ======================================================================
+   1) จุดกำหนดค่าธีม (ปรับสี/รูปแบบทั้งระบบได้จากจุดนี้ ควบคู่กับ CONFIG ใน <script>)
+   ====================================================================== */
+:root{
+  --primary:#0d9488;      --primary-dark:#0f766e;   --primary-light:#5eead4;
+  --secondary:#6366f1;    --accent:#f59e0b;         --danger:#ef4444;
+  --success:#10b981;      --warning:#f59e0b;        --info:#3b82f6;
+  --bg:#f4f7f8;           --surface:#ffffff;        --surface-2:#eef2f3;
+  --text:#0f172a;         --text-muted:#64748b;     --border:#e2e8f0;
+  --glass-bg:rgba(255,255,255,.65); --glass-border:rgba(255,255,255,.4);
+  --radius-sm:10px; --radius:16px; --radius-lg:24px;
+  --shadow-sm:0 1px 3px rgba(15,23,42,.08);
+  --shadow:0 8px 24px -8px rgba(15,23,42,.15);
+  --shadow-lg:0 20px 48px -12px rgba(15,23,42,.25);
+  --font: 'Sarabun','Noto Sans Thai UI','Leelawadee UI','Segoe UI',Tahoma,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1220; --surface:#121b2e; --surface-2:#182238;
+    --text:#e6edf5; --text-muted:#93a3b8; --border:#243149;
+    --glass-bg:rgba(18,27,46,.65); --glass-border:rgba(255,255,255,.08);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1220; --surface:#121b2e; --surface-2:#182238;
+  --text:#e6edf5; --text-muted:#93a3b8; --border:#243149;
+  --glass-bg:rgba(18,27,46,.65); --glass-border:rgba(255,255,255,.08);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font);}
+body{min-height:100vh;-webkit-font-smoothing:antialiased;}
+h1,h2,h3,h4{margin:0;font-weight:700;}
+p{margin:0;}
+button,input,select,textarea{font-family:inherit;}
+a{color:var(--primary);}
+.hidden{display:none !important;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
+
+/* ======================================================================
+   2) Layout / Topbar
+   ====================================================================== */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 20px;background:var(--glass-bg);backdrop-filter:blur(16px) saturate(160%);
+  -webkit-backdrop-filter:blur(16px) saturate(160%);
+  border-bottom:1px solid var(--glass-border);
+}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;}
+.brand-logo{
+  width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;font-size:22px;flex:none;
+  box-shadow:var(--shadow-sm);
+}
+.brand-text{min-width:0;}
+.brand-text b{display:block;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.brand-text span{display:block;font-size:11.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.nav-btn{
+  border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13.5px;
+  padding:9px 14px;border-radius:999px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:6px;
+}
+.nav-btn:hover{background:var(--surface-2);color:var(--text);}
+.nav-btn.active{background:var(--primary);color:#fff;box-shadow:var(--shadow-sm);}
+.theme-toggle{border:1px solid var(--border);background:var(--surface);width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
+
+.page{max-width:1180px;margin:0 auto;padding:20px 16px 64px;animation:fadeIn .35s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+.card{
+  background:var(--glass-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid var(--glass-border);border-radius:var(--radius);box-shadow:var(--shadow-sm);
+  padding:20px;margin-bottom:16px;
+}
+.card-solid{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:20px;margin-bottom:16px;}
+.section-title{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.section-title .ico{width:34px;height:34px;border-radius:10px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;}
+.section-title h3{font-size:16.5px;}
+.section-title small{display:block;color:var(--text-muted);font-size:12px;font-weight:400;}
+
+/* ======================================================================
+   3) Form elements
+   ====================================================================== */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:13.5px;font-weight:600;margin-bottom:6px;color:var(--text);}
+.field label .req{color:var(--danger);margin-inline-start:3px;}
+.field .hint{font-size:11.5px;color:var(--text-muted);margin-top:4px;}
+.field .err{font-size:11.5px;color:var(--danger);margin-top:4px;display:none;font-weight:600;}
+.field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--danger) !important;background:rgba(239,68,68,.05);}
+.field.invalid .err{display:block;}
+.input,select.input,textarea.input{
+  width:100%;padding:11px 13px;border-radius:12px;border:1.5px solid var(--border);
+  background:var(--surface);color:var(--text);font-size:14.5px;transition:.15s;outline:none;
+}
+.input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(13,148,136,.14);}
+textarea.input{resize:vertical;min-height:70px;}
+input[type=color].input{padding:4px;height:44px;cursor:pointer;}
+.grid{display:grid;gap:14px;}
+.grid-2{grid-template-columns:repeat(2,1fr);}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.grid-4{grid-template-columns:repeat(4,1fr);}
+@media(max-width:760px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr 1fr;}}
+@media(max-width:520px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+
+.choice-group{display:flex;flex-wrap:wrap;gap:8px;}
+.choice-card{
+  border:1.5px solid var(--border);background:var(--surface);border-radius:12px;padding:10px 16px;
+  cursor:pointer;font-size:14px;font-weight:600;color:var(--text-muted);transition:.15s;user-select:none;
+  display:flex;align-items:center;gap:8px;
+}
+.choice-card:hover{border-color:var(--primary-light);}
+.choice-card.selected{border-color:var(--primary);background:rgba(13,148,136,.1);color:var(--primary-dark);}
+.choice-card.selected .dot{background:var(--primary);}
+.choice-card .dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);flex:none;}
+.choice-card.selected .dot{border-color:var(--primary);position:relative;}
+.choice-card.selected .dot::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--primary);}
+.choice-card.square .dot{border-radius:5px;}
+.choice-card.square.selected .dot::after{border-radius:2px;}
+
+.slider-wrap{padding:6px 4px 2px;}
+.slider-track{position:relative;height:10px;border-radius:99px;background:linear-gradient(90deg,#ef4444,#f59e0b,#22c55e);}
+input[type=range].gauge{
+  -webkit-appearance:none;width:100%;height:10px;background:transparent;margin:0;position:relative;top:-10px;
+}
+input[type=range].gauge::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--primary-dark);box-shadow:var(--shadow-sm);cursor:pointer;margin-top:-6px;}
+input[type=range].gauge::-webkit-slider-runnable-track{height:10px;background:transparent;}
+input[type=range].gauge::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--primary-dark);cursor:pointer;}
+.gauge-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:2px;}
+.gauge-value{font-weight:700;color:var(--primary-dark);}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:700;}
+.badge-green{background:rgba(16,185,129,.14);color:#0a7a56;}
+.badge-amber{background:rgba(245,158,11,.16);color:#92620a;}
+.badge-red{background:rgba(239,68,68,.14);color:#b91c1c;}
+.badge-gray{background:var(--surface-2);color:var(--text-muted);}
+.badge-blue{background:rgba(59,130,246,.14);color:#1d4ed8;}
+
+/* Progress steps */
+.progress-wrap{margin-bottom:20px;}
+.progress-bar-bg{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden;}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--secondary));border-radius:99px;transition:width .3s;}
+.steps-row{display:flex;justify-content:space-between;margin-top:10px;gap:4px;}
+.step-pill{flex:1;text-align:center;font-size:11.5px;font-weight:700;color:var(--text-muted);padding:6px 2px;border-radius:8px;}
+.step-pill.active{color:var(--primary-dark);}
+.step-pill.done{color:var(--success);}
+
+/* Buttons */
+.btn{border:none;border-radius:12px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:8px;}
+.btn:disabled{opacity:.55;cursor:not-allowed;}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;box-shadow:0 8px 18px -6px rgba(13,148,136,.55);}
+.btn-primary:hover:not(:disabled){filter:brightness(1.06);}
+.btn-secondary{background:var(--surface-2);color:var(--text);}
+.btn-secondary:hover{background:var(--border);}
+.btn-danger{background:rgba(239,68,68,.12);color:#b91c1c;}
+.btn-danger:hover{background:rgba(239,68,68,.2);}
+.btn-ghost{background:transparent;color:var(--primary-dark);}
+.btn-sm{padding:7px 12px;font-size:12.5px;border-radius:9px;}
+.btn-block{width:100%;justify-content:center;}
+.actions-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;}
+
+/* KPI / Dashboard */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:480px){.kpi-grid{grid-template-columns:1fr;}}
+.kpi-card{cursor:pointer;position:relative;overflow:hidden;}
+.kpi-card::after{content:'';position:absolute;right:-30px;top:-30px;width:100px;height:100px;border-radius:50%;background:var(--kpi-color,var(--primary));opacity:.12;}
+.kpi-card .kpi-label{font-size:12.5px;color:var(--text-muted);font-weight:600;}
+.kpi-card .kpi-value{font-size:30px;font-weight:800;margin-top:4px;color:var(--kpi-color,var(--primary));}
+.kpi-card .kpi-sub{font-size:11.5px;color:var(--text-muted);margin-top:4px;}
+
+.chart-card svg{width:100%;height:auto;display:block;}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;}
+.legend-dot{width:11px;height:11px;border-radius:4px;flex:none;}
+
+table.data-table{width:100%;border-collapse:collapse;font-size:13px;}
+table.data-table th{text-align:left;padding:10px 12px;background:var(--surface-2);color:var(--text-muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0;}
+table.data-table td{padding:10px 12px;border-bottom:1px solid var(--border);}
+table.data-table tr:hover td{background:rgba(13,148,136,.05);}
+.table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+.toolbar .input{width:auto;flex:1;min-width:160px;}
+
+/* Modal / Toast */
+.overlay{position:fixed;inset:0;background:rgba(10,15,25,.55);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal{background:var(--surface);border-radius:var(--radius-lg);max-width:640px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:var(--shadow-lg);padding:24px;}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:10px;}
+.modal-close{border:none;background:var(--surface-2);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:15px;flex:none;}
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:10px;max-width:340px;}
+.toast{background:var(--surface);border-left:4px solid var(--primary);border-radius:12px;padding:13px 16px;box-shadow:var(--shadow-lg);font-size:13.5px;animation:slideIn .25s ease;}
+.toast.success{border-color:var(--success);}
+.toast.error{border-color:var(--danger);}
+.toast.warn{border-color:var(--warning);}
+@keyframes slideIn{from{transform:translateX(30px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+.info-box{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--text);line-height:1.7;}
+.info-box b{color:var(--info);}
+.ref-table{width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;}
+.ref-table th,.ref-table td{border:1px solid var(--border);padding:5px 8px;text-align:center;}
+.ref-table th{background:var(--surface-2);}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--text-muted);}
+.empty-state .emoji{font-size:44px;margin-bottom:10px;}
+
+.demo-banner{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#78350f;padding:9px 16px;border-radius:12px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+:root[data-theme="dark"] .demo-banner, @media (prefers-color-scheme:dark){.demo-banner{color:#78350f;}}
+
+.landing-hero{text-align:center;padding:6px 6px 22px;}
+.landing-hero h1{font-size:clamp(22px,4vw,30px);background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.landing-hero p{color:var(--text-muted);margin-top:8px;font-size:13.5px;}
+
+.footer-note{text-align:center;color:var(--text-muted);font-size:11.5px;margin-top:30px;}
+
+.spinner{width:16px;height:16px;border-radius:50%;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;animation:spin .7s linear infinite;}
+.spinner.dark{border-color:rgba(13,148,136,.25);border-top-color:var(--primary);}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.avatar-select{display:flex;gap:10px;}
+.tab-strip{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;background:var(--surface-2);padding:5px;border-radius:14px;width:fit-content;}
+.tab-btn{border:none;background:transparent;padding:9px 16px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;color:var(--text-muted);}
+.tab-btn.active{background:var(--surface);color:var(--primary-dark);box-shadow:var(--shadow-sm);}
+
+@media print{
+  .topbar,.no-print,.toast-wrap{display:none !important;}
+  body{background:#fff;}
+  .page{max-width:100%;padding:0;}
+  .card,.card-solid{box-shadow:none;border:1px solid #ccc;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar no-print">
+  <div class="brand">
+    <div class="brand-logo" id="brandLogo">🩺</div>
+    <div class="brand-text">
+      <b id="brandTitle">ระบบบันทึกผลตรวจสุขภาพเบื้องต้น</b>
+      <span id="brandSubtitle">กลุ่มงานสุขศึกษา</span>
+    </div>
+  </div>
+  <div class="nav" id="mainNav">
+    <button class="nav-btn" data-route="form">📝 บันทึกข้อมูล</button>
+    <button class="nav-btn" data-route="dashboard">📊 Dashboard</button>
+    <button class="nav-btn" data-route="admin">🔐 ผู้ดูแลระบบ</button>
+    <button class="theme-toggle" id="themeToggle" title="สลับโหมดสี">🌙</button>
+  </div>
+</div>
+
+<div id="app"></div>
+<div class="toast-wrap" id="toastWrap"></div>
+<div id="modalRoot"></div>
+
+<script>
+/* ==========================================================================
+   CONFIG — จุดกำหนดค่าเดียวของระบบ (ชื่อระบบ/โลโก้/หน่วยงาน/สี/ข้อความ/URL API)
+   ========================================================================== */
+const CONFIG = {
+  systemName: 'ระบบบันทึกผลตรวจสุขภาพเบื้องต้น',
+  orgName: 'กลุ่มงานสุขศึกษา โรงพยาบาลพระปกเกล้า',
+  headerText: 'โครงการค่ายปฏิบัติการเข้มข้นเสริมพลังความรอบรู้ทางสุขภาพเพื่อลดโรคไม่ติดต่อเรื้อรัง',
+  logoEmoji: '🩺',
+  primaryColor: '#0d9488',
+  secondaryColor: '#6366f1',
+  // ใส่ Web App URL จาก Google Apps Script ที่นี่ (ลงท้ายด้วย /exec) เพื่อเปลี่ยนจาก Demo Mode ไปใช้ Google Sheets จริง
+  GAS_API_URL: 'https://script.google.com/macros/s/AKfycbzvN26DrNV5QkrEPyQaaCeXoKmwDstS4bFG1w5cnhhjTFpHMN6WLPrz2r9j5kR9tScy/exec',
+  //https://script.google.com/macros/s/AKfycbyx_mDBktSHclBnADFTRFY4kmD3JPsHdjCYJW37HAohQLIVszbOp-_SSiqdYlWEs7E/exec
+  // true = เชื่อมต่อ Google Sheets จริงเฉพาะหน้า Dashboard เท่านั้น (หน้าบันทึกข้อมูล/ผู้ดูแลระบบยังคงเป็น Demo Mode)
+  // false = เชื่อมต่อ Google Sheets จริงทั้งระบบ (บันทึกข้อมูล/ผู้ดูแลระบบ/Dashboard) — ค่าเริ่มต้นตามสเปค
+  dashboardOnlyRemote: false,
+  adminTokenTTLms: 8 * 60 * 60 * 1000
+};
+
+/* ==========================================================================
+   FIELD SCHEMA — ต้องตรงกับ Code.gs และ Excel Template ทุกตัวอักษร ห้ามตัด/รวม/เปลี่ยนความหมาย
+   ========================================================================== */
+const FIELD_SCHEMA = [
+  { key:'record_id', label:'รหัสรายการ', type:'text', system:true },
+  { key:'created_at', label:'วันเวลาที่บันทึก', type:'text', system:true },
+  { key:'updated_at', label:'วันเวลาที่แก้ไขล่าสุด', type:'text', system:true },
+  { key:'record_status', label:'สถานะรายการ', type:'text', system:true },
+  { key:'created_by', label:'ผู้บันทึก', type:'text', system:true },
+  { key:'updated_by', label:'ผู้แก้ไขล่าสุด', type:'text', system:true },
+
+  { key:'first_name', label:'ชื่อ', type:'text', required:true, step:1 },
+  { key:'last_name', label:'นามสกุล', type:'text', required:true, step:1 },
+  { key:'gender', label:'เพศ', type:'select', options:['ชาย','หญิง'], required:true, step:1,
+    note:'ฟิลด์เพิ่มเติมจากต้นฉบับ: จำเป็นสำหรับแปลผลตามเกณฑ์ที่แบบฟอร์มต้นฉบับแยกชาย/หญิง' },
+  { key:'age', label:'อายุ', unit:'ปี', type:'number', min:0, max:120, required:true, step:1 },
+  { key:'occupation', label:'อาชีพ', type:'text', step:1 },
+  { key:'phone', label:'เบอร์โทรศัพท์', type:'tel', step:1 },
+  { key:'height_cm', label:'ส่วนสูง', unit:'ซม.', type:'number', min:50, max:250, required:true, step:1 },
+  { key:'waist_cm', label:'รอบเอว', unit:'ซม.', type:'number', min:30, max:200, required:true, step:1 },
+  { key:'disease_diabetes', label:'เบาหวาน', type:'boolean', step:1, group:'disease' },
+  { key:'disease_hypertension', label:'ความดัน', type:'boolean', step:1, group:'disease' },
+  { key:'disease_lipid', label:'ไขมัน', type:'boolean', step:1, group:'disease' },
+  { key:'disease_other', label:'อื่นๆ', type:'boolean', step:1, group:'disease' },
+  { key:'disease_other_detail', label:'ระบุโรคประจำตัวอื่นๆ', type:'text', step:1, conditionOf:'disease_other' },
+
+  { key:'weight_kg', label:'น้ำหนัก', unit:'กก.', type:'number', min:10, max:300, required:true, step:2 },
+  { key:'body_fat_percent', label:'ไขมันทั่วร่างกาย', unit:'%', type:'number', min:0, max:80, required:true, step:2 },
+  { key:'muscle_mass_kg', label:'มวลกล้ามเนื้อ', unit:'กก.', type:'number', min:0, max:150, required:true, step:2 },
+  { key:'bmi', label:'ค่าดัชนีมวลกาย (BMI)', type:'number', min:0, max:80, step:2, note:'คำนวณอัตโนมัติจากน้ำหนัก/ส่วนสูง สามารถแก้ไขได้หากมีค่าจากเครื่อง BIA' },
+  { key:'bmr', label:'อัตราการเผาผลาญพลังงานต่อวัน (BMR)', unit:'กิโลแคลอรี่', type:'number', min:0, max:6000, step:2 },
+  { key:'body_age', label:'อายุการเผาผลาญของร่างกาย', unit:'ปี', type:'number', min:0, max:120, step:2 },
+  { key:'body_water_percent', label:'น้ำในร่างกาย', unit:'%', type:'number', min:0, max:90, step:2 },
+  { key:'visceral_fat_level', label:'ไขมันในช่องท้อง', unit:'ระดับ', type:'number', min:0, max:30, step:2 },
+
+  { key:'physical_stress', label:'ความเครียดทางกาย', type:'gauge', min:0, max:100, step:3 },
+  { key:'mental_stress', label:'ความเครียดทางจิตใจ', type:'gauge', min:0, max:100, step:3 },
+  { key:'stress_level', label:'ระดับความเครียด', type:'gauge', min:0, max:100, step:3 },
+  { key:'peripheral_artery_elasticity', label:'ความยืดหยุ่นของหลอดเลือดแดงส่วนปลาย', type:'number', min:0, max:100, step:3 },
+  { key:'artery_elasticity', label:'ความยืดหยุ่นของหลอดเลือดแดง', type:'number', min:0, max:100, step:3 },
+  { key:'vascular_type1_percent', label:'Type1', type:'number', min:0, max:100, step:3, group:'vascular' },
+  { key:'vascular_type2_percent', label:'Type2', type:'number', min:0, max:100, step:3, group:'vascular' },
+  { key:'vascular_type3_percent', label:'Type3', type:'number', min:0, max:100, step:3, group:'vascular' },
+  { key:'vascular_type4_percent', label:'Type4', type:'number', min:0, max:100, step:3, group:'vascular' },
+  { key:'vascular_type5_percent', label:'Type5', type:'number', min:0, max:100, step:3, group:'vascular' },
+  { key:'vascular_type6_percent', label:'Type6', type:'number', min:0, max:100, step:3, group:'vascular' },
+  { key:'vascular_type7_percent', label:'Type7', type:'number', min:0, max:100, step:3, group:'vascular' }
+];
+const FIELD_KEYS = FIELD_SCHEMA.map(f=>f.key);
+const PII_FIELDS = ['first_name','last_name','phone','occupation'];
+
+/* ==========================================================================
+   เกณฑ์การแปลผล — ตรงกับ Code.gs
+   ========================================================================== */
+function classifyBMI(bmi){
+  if(bmi===''||bmi==null||isNaN(bmi)) return null;
+  bmi = Number(bmi);
+  if(bmi<18.5) return {label:'น้ำหนักต่ำกว่าเกณฑ์',tone:'blue'};
+  if(bmi<23) return {label:'ปกติ',tone:'green'};
+  if(bmi<25) return {label:'น้ำหนักเกิน',tone:'amber'};
+  if(bmi<30) return {label:'โรคอ้วน',tone:'red'};
+  return {label:'โรคอ้วนระดับรุนแรง',tone:'red'};
+}
+function classifyWaist(waist,gender){
+  if(!waist||isNaN(waist)||!gender) return null;
+  const limit = gender==='ชาย'?90:80;
+  return Number(waist)<=limit ? {label:'ปกติ',tone:'green'} : {label:'เกินเกณฑ์มาตรฐานเอเชีย',tone:'amber'};
+}
+const BODYFAT_TABLE = {
+  'หญิง':[{max:39,ranges:[[0,21,'ต่ำกว่าเกณฑ์','blue'],[21,33,'ปกติ','green'],[33,39,'เริ่มอ้วน','amber'],[39,999,'อ้วน','red']]},
+          {max:59,ranges:[[0,20,'ต่ำกว่าเกณฑ์','blue'],[20,34,'ปกติ','green'],[34,40,'เริ่มอ้วน','amber'],[40,999,'อ้วน','red']]},
+          {max:200,ranges:[[0,25,'ต่ำกว่าเกณฑ์','blue'],[25,36,'ปกติ','green'],[36,42,'เริ่มอ้วน','amber'],[42,999,'อ้วน','red']]}],
+  'ชาย':[{max:39,ranges:[[0,9,'ต่ำกว่าเกณฑ์','blue'],[9,20,'ปกติ','green'],[20,25,'เริ่มอ้วน','amber'],[25,999,'อ้วน','red']]},
+         {max:59,ranges:[[0,11,'ต่ำกว่าเกณฑ์','blue'],[11,22,'ปกติ','green'],[22,28,'เริ่มอ้วน','amber'],[28,999,'อ้วน','red']]},
+         {max:200,ranges:[[0,20,'ต่ำกว่าเกณฑ์','blue'],[20,25,'ปกติ','green'],[25,30,'เริ่มอ้วน','amber'],[30,999,'อ้วน','red']]}]
+};
+function classifyBodyFat(percent,gender,age){
+  if(percent===''||percent==null||isNaN(percent)||!gender||!age) return null;
+  const table = BODYFAT_TABLE[gender]; if(!table) return null;
+  const band = table.find(b=>Number(age)<=b.max) || table[table.length-1];
+  const p = Number(percent);
+  for(const [lo,hi,label,tone] of band.ranges){ if(p>=lo && p<hi) return {label,tone}; }
+  return null;
+}
+function classifyMuscleMass(muscleKg,weightKg,gender){
+  if(!muscleKg||!weightKg||!gender) return null;
+  const pct = (Number(muscleKg)/Number(weightKg))*100;
+  const norm = gender==='หญิง' ? [25,30] : [35,40];
+  let label,tone;
+  if(pct<norm[0]){label='ต่ำกว่าเกณฑ์';tone='amber';}
+  else if(pct<=norm[1]){label='ปกติ';tone='green';}
+  else {label='สูงกว่าเกณฑ์';tone='blue';}
+  return {label,tone,pct:Math.round(pct*10)/10};
+}
+function classifyVisceralFat(level){
+  if(level===''||level==null||isNaN(level)) return null;
+  level = Number(level);
+  if(level<=9) return {label:'ปกติ',tone:'green'};
+  if(level<=14) return {label:'เริ่มมีความเสี่ยง',tone:'amber'};
+  return {label:'มีความเสี่ยงสูง',tone:'red'};
+}
+function classifyBodyWater(percent,gender){
+  if(percent===''||percent==null||isNaN(percent)||!gender) return null;
+  const range = gender==='หญิง' ? [45,60] : [50,65];
+  const p = Number(percent);
+  if(p<range[0]) return {label:'ต่ำกว่าเกณฑ์',tone:'amber'};
+  if(p>range[1]) return {label:'สูงกว่าเกณฑ์',tone:'blue'};
+  return {label:'ปกติ',tone:'green'};
+}
+function classifyStressGauge(v){
+  if(v===''||v==null||isNaN(v)) return null;
+  v=Number(v);
+  if(v<34) return {label:'ไม่ดี',tone:'red'};
+  if(v<67) return {label:'ปกติ',tone:'amber'};
+  return {label:'ดี',tone:'green'};
+}
+function dominantVascularType(rec){
+  const keys=['vascular_type1_percent','vascular_type2_percent','vascular_type3_percent','vascular_type4_percent','vascular_type5_percent','vascular_type6_percent','vascular_type7_percent'];
+  let max=-1, idx=-1;
+  keys.forEach((k,i)=>{ const v=Number(rec[k]); if(!isNaN(v) && v>max){max=v; idx=i;} });
+  if(idx===-1||max<=0) return null;
+  return 'Type'+(idx+1);
+}
+const VASCULAR_TYPE_DESC = {
+  Type1:'หลอดเลือดแดงและการไหลเวียนเลือดดีมาก (เทียบอายุ 20-29 ปี) เสี่ยงน้อยต่อภาวะหลอดเลือดตีบ',
+  Type2:'หลอดเลือดแดงและการไหลเวียนเลือดดีแต่อาจเริ่มเสื่อมมากขึ้น (เทียบอายุ 30-39 ปี) เสี่ยงน้อยแต่แย่ลงได้ถ้าไม่ดูแลสุขภาพ',
+  Type3:'หลอดเลือดแดงและการไหลเวียนเลือดเริ่มไม่ดี (เทียบอายุ 40-59 ปี) อาจเริ่มมีความเสี่ยงต่อภาวะหลอดเลือดแดงตีบ',
+  Type4:'หลอดเลือดแดงและการไหลเวียนเลือดเริ่มไม่ดี (เทียบอายุ 40-59 ปี) อาจเริ่มมีความเสี่ยงต่อภาวะหลอดเลือดแดงตีบ',
+  Type5:'หลอดเลือดแดงและการไหลเวียนเลือดไม่ดี (เทียบอายุ 60 ปีขึ้นไป) มีความเสี่ยงต่อภาวะหลอดเลือดแดงตีบเพิ่มขึ้น',
+  Type6:'หลอดเลือดแดงและการไหลเวียนเลือดไม่ดีอย่างมาก (เทียบอายุ 60 ปีขึ้นไป) มีความเสี่ยงสูงต่อภาวะหลอดเลือดแดงตีบ',
+  Type7:'หลอดเลือดแดงและการไหลเวียนเลือดไม่ดีอย่างมาก (เทียบอายุ 60 ปีขึ้นไป) มีความเสี่ยงสูงต่อภาวะหลอดเลือดแดงตีบ'
+};
+
+/* ==========================================================================
+   UTILITIES
+   ========================================================================== */
+const $ = (sel,root=document)=>root.querySelector(sel);
+const $$ = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
+function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild; }
+function escapeHtml(str){ if(str===null||str===undefined) return ''; return String(str).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function uid(){ return 'REC-'+Date.now().toString(36).toUpperCase()+'-'+Math.floor(1000+Math.random()*9000); }
+function nowIso(){ return new Date().toISOString(); }
+function fmtDate(iso){ if(!iso) return '-'; try{ const d=new Date(iso); return d.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}); }catch(e){ return iso; } }
+function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+function toast(msg,type='success'){
+  const t = el(`<div class="toast ${type}">${escapeHtml(msg)}</div>`);
+  $('#toastWrap').appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(30px)'; t.style.transition='.3s'; setTimeout(()=>t.remove(),300); }, 3600);
+}
+function openModal(innerHtml, opts={}){
+  const root = $('#modalRoot');
+  const overlay = el(`<div class="overlay"><div class="modal">${innerHtml}</div></div>`);
+  root.appendChild(overlay);
+  overlay.addEventListener('click',e=>{ if(e.target===overlay && opts.closable!==false) closeModal(); });
+  return overlay;
+}
+function closeModal(){ $('#modalRoot').innerHTML=''; }
+function confirmDialog(title, message, onConfirm, danger=true){
+  const m = openModal(`
+    <div class="modal-head"><h3>${escapeHtml(title)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <p style="font-size:14px;color:var(--text-muted);line-height:1.7;">${escapeHtml(message)}</p>
+    <div class="actions-row">
+      <button class="btn ${danger?'btn-danger':'btn-primary'}" id="confirmYes">ยืนยัน</button>
+      <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+    </div>`);
+  $('#confirmYes',m).onclick = ()=>{ closeModal(); onConfirm(); };
+}
+function toCsv(rows, headers){
+  const esc = v => { const s = (v===null||v===undefined)?'':String(v); return '"'+s.replace(/"/g,'""')+'"'; };
+  const lines = [headers.map(esc).join(',')];
+  rows.forEach(r=> lines.push(headers.map(h=>esc(r[h])).join(',')) );
+  return '﻿'+lines.join('\r\n');
+}
+function downloadFile(filename, content, mime){
+  const blob = new Blob([content],{type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },500);
+}
+
+/* ==========================================================================
+   DATA LAYER — Demo Mode (LocalStorage) + Google Apps Script Mode
+   ========================================================================== */
+const LS_KEYS = { records:'hc_records_v1', admin:'hc_admin_v1', token:'hc_admin_token_v1', draft:'hc_form_draft_v1', theme:'hc_theme_v1', branding:'hc_branding_v1' };
+
+function seedDemoData(){
+  if(localStorage.getItem(LS_KEYS.records)) return;
+  const first=['สมชาย','สมหญิง','วิชัย','นภา','ประยุทธ','กัลยา','ธนา','อรุณี','สุรชัย','พิมพ์ใจ','อนันต์','จิราภรณ์','ชาญณรงค์','ศิริพร','ธีรเดช','วราภรณ์'];
+  const last=['ใจดี','รักเรียน','สายบัว','เพชรงาม','ทองคำ','แสงจันทร์','บุญมี','ศรีสุข','มั่นคง','วงศ์สกุล'];
+  const genders=['ชาย','หญิง'];
+  const recs=[];
+  for(let i=0;i<36;i++){
+    const gender = genders[Math.random()<0.5?0:1];
+    const age = 20+Math.floor(Math.random()*55);
+    const height = gender==='ชาย' ? 160+Math.random()*20 : 150+Math.random()*18;
+    const weight = gender==='ชาย' ? 55+Math.random()*35 : 45+Math.random()*32;
+    const bmi = Math.round((weight/((height/100)**2))*100)/100;
+    const waist = gender==='ชาย' ? 70+Math.random()*35 : 65+Math.random()*30;
+    const bodyFat = gender==='ชาย' ? 10+Math.random()*25 : 20+Math.random()*28;
+    const muscle = weight*(gender==='ชาย'?(0.3+Math.random()*0.15):(0.2+Math.random()*0.12));
+    const visceral = Math.floor(1+Math.random()*18);
+    const daysAgo = Math.floor(Math.random()*60);
+    const created = new Date(Date.now()-daysAgo*86400000-Math.floor(Math.random()*80000000)).toISOString();
+    const vt = [0,0,0,0,0,0,0]; const dom = Math.floor(Math.random()*7); vt[dom]=60+Math.random()*40;
+    let remain=100-vt[dom];
+    for(let k=0;k<7;k++){ if(k!==dom){ const share=Math.random()*remain*0.4; vt[k]=Math.round(share*10)/10; remain-=vt[k]; } }
+    recs.push({
+      record_id: uid()+i, created_at: created, updated_at: created, record_status:'active', created_by:'demo_seed', updated_by:'',
+      first_name:first[Math.floor(Math.random()*first.length)], last_name:last[Math.floor(Math.random()*last.length)],
+      gender, age, occupation:'เจ้าหน้าที่', phone:'08x-xxx-'+(1000+i),
+      height_cm:Math.round(height*10)/10, waist_cm:Math.round(waist*10)/10,
+      disease_diabetes: Math.random()<0.15, disease_hypertension: Math.random()<0.2, disease_lipid: Math.random()<0.18, disease_other:false, disease_other_detail:'',
+      weight_kg:Math.round(weight*10)/10, body_fat_percent:Math.round(bodyFat*10)/10, muscle_mass_kg:Math.round(muscle*10)/10,
+      bmi, bmr:Math.round(1000+Math.random()*700), body_age:Math.max(15,Math.round(age+(Math.random()*16-8))),
+      body_water_percent:Math.round((gender==='ชาย'?50+Math.random()*15:42+Math.random()*15)*10)/10, visceral_fat_level:visceral,
+      physical_stress:Math.floor(Math.random()*100), mental_stress:Math.floor(Math.random()*100), stress_level:Math.floor(Math.random()*100),
+      peripheral_artery_elasticity:Math.floor(30+Math.random()*70), artery_elasticity:Math.floor(30+Math.random()*70),
+      vascular_type1_percent:vt[0],vascular_type2_percent:vt[1],vascular_type3_percent:vt[2],vascular_type4_percent:vt[3],vascular_type5_percent:vt[4],vascular_type6_percent:vt[5],vascular_type7_percent:vt[6]
+    });
+  }
+  localStorage.setItem(LS_KEYS.records, JSON.stringify(recs));
+}
+function getLocalRecords(){ return JSON.parse(localStorage.getItem(LS_KEYS.records)||'[]'); }
+function saveLocalRecords(recs){ localStorage.setItem(LS_KEYS.records, JSON.stringify(recs)); }
+function getLocalAdmin(){ return JSON.parse(localStorage.getItem(LS_KEYS.admin)||'null') || {username:'admin', password:'admin'}; }
+
+function applyFiltersJS(records, params={}){
+  let out = records;
+  if(params.gender) out = out.filter(r=>r.gender===params.gender);
+  if(params.date_from) out = out.filter(r=> String(r.created_at) >= String(params.date_from));
+  if(params.date_to) out = out.filter(r=> String(r.created_at) <= String(params.date_to)+'T23:59:59');
+  if(params.status) out = out.filter(r=> r.record_status===params.status);
+  if(params.q){ const q=params.q.toLowerCase(); out = out.filter(r=> (String(r.first_name)+String(r.last_name)+String(r.record_id)+String(r.phone)).toLowerCase().includes(q) ); }
+  return out;
+}
+function stripPII(rec){ const c={...rec}; PII_FIELDS.forEach(k=>delete c[k]); return c; }
+function average(values){ const v=values.map(Number).filter(n=>!isNaN(n)); if(!v.length) return null; return Math.round((v.reduce((a,b)=>a+b,0)/v.length)*100)/100; }
+function buildSummaryJS(records){
+  const total=records.length;
+  const genderCount={'ชาย':0,'หญิง':0};
+  const bmiCategory={'น้ำหนักต่ำกว่าเกณฑ์':0,'ปกติ':0,'น้ำหนักเกิน':0,'โรคอ้วน':0,'โรคอ้วนระดับรุนแรง':0};
+  const waistRisk={'ปกติ':0,'เกินเกณฑ์มาตรฐานเอเชีย':0};
+  const visceralRisk={'ปกติ':0,'เริ่มมีความเสี่ยง':0,'มีความเสี่ยงสูง':0};
+  const vascularTypeDominant={Type1:0,Type2:0,Type3:0,Type4:0,Type5:0,Type6:0,Type7:0};
+  const stressBuckets={'ไม่ดี':0,'ปกติ':0,'ดี':0};
+  const diseaseCount={diabetes:0,hypertension:0,lipid:0,other:0};
+  records.forEach(r=>{
+    if(genderCount[r.gender]!==undefined) genderCount[r.gender]++;
+    const b=classifyBMI(r.bmi); if(b && bmiCategory[b.label]!==undefined) bmiCategory[b.label]++;
+    const w=classifyWaist(r.waist_cm,r.gender); if(w && waistRisk[w.label]!==undefined) waistRisk[w.label]++;
+    const v=classifyVisceralFat(r.visceral_fat_level); if(v && visceralRisk[v.label]!==undefined) visceralRisk[v.label]++;
+    const dom=dominantVascularType(r); if(dom) vascularTypeDominant[dom]++;
+    const s=classifyStressGauge(r.stress_level); if(s && stressBuckets[s.label]!==undefined) stressBuckets[s.label]++;
+    if(r.disease_diabetes===true) diseaseCount.diabetes++;
+    if(r.disease_hypertension===true) diseaseCount.hypertension++;
+    if(r.disease_lipid===true) diseaseCount.lipid++;
+    if(r.disease_other===true) diseaseCount.other++;
+  });
+  const avg = {
+    age:average(records.map(r=>r.age)), bmi:average(records.map(r=>r.bmi)), weight_kg:average(records.map(r=>r.weight_kg)),
+    body_fat_percent:average(records.map(r=>r.body_fat_percent)), muscle_mass_kg:average(records.map(r=>r.muscle_mass_kg)),
+    body_water_percent:average(records.map(r=>r.body_water_percent)), visceral_fat_level:average(records.map(r=>r.visceral_fat_level)),
+    bmr:average(records.map(r=>r.bmr)), waist_cm:average(records.map(r=>r.waist_cm)),
+    physical_stress:average(records.map(r=>r.physical_stress)), mental_stress:average(records.map(r=>r.mental_stress)), stress_level:average(records.map(r=>r.stress_level))
+  };
+  return {total,genderCount,bmiCategory,waistRisk,visceralRisk,vascularTypeDominant,stressBuckets,diseaseCount,avg,lastUpdated:nowIso()};
+}
+
+const DataAPI = {
+  // CONFIG.dashboardOnlyRemote=true (ค่าเริ่มต้นตามคำขอ): เชื่อมต่อ Google Sheets จริงเฉพาะ Dashboard
+  // ส่วนบันทึกข้อมูล/ผู้ดูแลระบบยังคงทำงานแบบ Demo Mode (Local Storage) เพื่อไม่ให้กระทบข้อมูลจริงใน Sheet
+  // ต้องการให้ทุกส่วนเชื่อมต่อ Google Sheets จริงทั้งหมด: เปลี่ยน CONFIG.dashboardOnlyRemote เป็น false
+  isDemo(){ return !CONFIG.GAS_API_URL || CONFIG.dashboardOnlyRemote; },
+  isDashboardDemo(){ return !CONFIG.GAS_API_URL; },
+  async ping(){
+    if(this.isDemo()) return {success:true,message:'Demo Mode',data:{time:nowIso()}};
+    return this._get({action:'ping'});
+  },
+  async list(params={}){
+    if(this.isDemo()){
+      seedDemoData();
+      let recs = applyFiltersJS(getLocalRecords(), params);
+      const isAdmin = !!localStorage.getItem(LS_KEYS.token);
+      if(!isAdmin){ recs = recs.filter(r=>r.record_status!=='deleted').map(stripPII); }
+      recs.sort((a,b)=> String(b.created_at).localeCompare(String(a.created_at)));
+      return {success:true,data:recs};
+    }
+    const token = localStorage.getItem(LS_KEYS.token) || '';
+    return this._get({action:'list', token, ...params});
+  },
+  async get(record_id){
+    if(this.isDemo()){
+      const rec = getLocalRecords().find(r=>r.record_id===record_id);
+      const isAdmin = !!localStorage.getItem(LS_KEYS.token);
+      return rec ? {success:true,data:isAdmin?rec:stripPII(rec)} : {success:false,message:'ไม่พบรายการ'};
+    }
+    const token = localStorage.getItem(LS_KEYS.token) || '';
+    return this._get({action:'get', record_id, token});
+  },
+  async summary(params={}){
+    if(this.isDashboardDemo()){
+      seedDemoData();
+      const recs = applyFiltersJS(getLocalRecords().filter(r=>r.record_status!=='deleted'), params);
+      return {success:true, data: buildSummaryJS(recs)};
+    }
+    return this._get({action:'summary', ...params});
+  },
+  async create(payload){
+    if(this.isDemo()){
+      seedDemoData();
+      const recs = getLocalRecords();
+      const now = nowIso();
+      const rec = { record_id:uid(), created_at:now, updated_at:now, record_status:'active', created_by:'public_form', updated_by:'' };
+      FIELD_SCHEMA.forEach(f=>{ if(!f.system) rec[f.key] = payload[f.key] !== undefined ? payload[f.key] : ''; });
+      if(!rec.bmi && rec.height_cm && rec.weight_kg){ const hM=Number(rec.height_cm)/100; rec.bmi = Math.round((Number(rec.weight_kg)/(hM*hM))*100)/100; }
+      recs.push(rec); saveLocalRecords(recs);
+      return {success:true,message:'บันทึกข้อมูลสำเร็จ (Demo Mode - เก็บใน Local Storage ของเบราว์เซอร์นี้)', data:rec};
+    }
+    return this._post({action:'create', payload});
+  },
+  async update(payload){
+    if(this.isDemo()){
+      const recs = getLocalRecords();
+      const idx = recs.findIndex(r=>r.record_id===payload.record_id);
+      if(idx===-1) return {success:false,message:'ไม่พบรายการ'};
+      recs[idx] = {...recs[idx], ...payload, updated_at:nowIso(), updated_by: (JSON.parse(localStorage.getItem(LS_KEYS.token+'_user')||'null'))||'admin'};
+      saveLocalRecords(recs);
+      return {success:true,message:'แก้ไขข้อมูลสำเร็จ',data:recs[idx]};
+    }
+    const token = localStorage.getItem(LS_KEYS.token) || '';
+    return this._post({action:'update', payload, auth:{token}});
+  },
+  async remove(record_id){
+    if(this.isDemo()){
+      const recs = getLocalRecords();
+      const idx = recs.findIndex(r=>r.record_id===record_id);
+      if(idx===-1) return {success:false,message:'ไม่พบรายการ'};
+      recs[idx].record_status='deleted'; recs[idx].updated_at=nowIso();
+      saveLocalRecords(recs);
+      return {success:true,message:'ลบข้อมูลสำเร็จ'};
+    }
+    const token = localStorage.getItem(LS_KEYS.token) || '';
+    return this._post({action:'delete', record_id, auth:{token}});
+  },
+  async adminLogin(username,password){
+    if(this.isDemo()){
+      const admin = getLocalAdmin();
+      if(username===admin.username && password===admin.password){
+        const token = 'demo-'+Date.now();
+        localStorage.setItem(LS_KEYS.token, token);
+        localStorage.setItem(LS_KEYS.token+'_user', JSON.stringify(username));
+        return {success:true,data:{token,username}};
+      }
+      return {success:false,message:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'};
+    }
+    return this._post({action:'adminLogin', username, password});
+  },
+  async changeAdminCredential(newUsername,newPassword){
+    if(this.isDemo()){
+      localStorage.setItem(LS_KEYS.admin, JSON.stringify({username:newUsername,password:newPassword}));
+      return {success:true,message:'เปลี่ยนบัญชีผู้ดูแลสำเร็จ'};
+    }
+    const token = localStorage.getItem(LS_KEYS.token) || '';
+    return this._post({action:'changeAdminCredential', auth:{token}, newUsername, newPassword});
+  },
+  async _get(params){
+    try{
+      const url = new URL(CONFIG.GAS_API_URL);
+      Object.entries(params).forEach(([k,v])=>{ if(v!==undefined && v!==null && v!=='') url.searchParams.set(k,v); });
+      const res = await fetch(url.toString(), {method:'GET'});
+      return await res.json();
+    }catch(e){ return {success:false, message:'ไม่สามารถเชื่อมต่อ API ได้ กรุณาตรวจสอบอินเทอร์เน็ตหรือ GAS_API_URL', error:String(e)}; }
+  },
+  async _post(body){
+    try{
+      const res = await fetch(CONFIG.GAS_API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body) });
+      return await res.json();
+    }catch(e){ return {success:false, message:'ไม่สามารถเชื่อมต่อ API ได้ กรุณาตรวจสอบอินเทอร์เน็ตหรือ GAS_API_URL', error:String(e)}; }
+  }
+};
+
+/* ==========================================================================
+   STATE + ROUTER
+   ========================================================================== */
+const state = { route:'form', formStep:1, formData:{}, submitting:false, dashboardFilters:{}, adminFilters:{}, adminTab:'records', charts:{} };
+
+function applyBranding(){
+  const b = JSON.parse(localStorage.getItem(LS_KEYS.branding)||'{}');
+  const name = b.systemName || CONFIG.systemName;
+  const org = b.orgName || CONFIG.orgName;
+  const logo = b.logoEmoji || CONFIG.logoEmoji;
+  const color = b.primaryColor || CONFIG.primaryColor;
+  const color2 = b.secondaryColor || CONFIG.secondaryColor;
+  $('#brandTitle').textContent = name;
+  $('#brandSubtitle').textContent = org;
+  $('#brandLogo').textContent = logo;
+  document.title = name;
+  document.documentElement.style.setProperty('--primary', color);
+  document.documentElement.style.setProperty('--primary-dark', shadeColor(color,-12));
+  document.documentElement.style.setProperty('--primary-light', shadeColor(color,32));
+  document.documentElement.style.setProperty('--secondary', color2);
+}
+function shadeColor(hex, percent){
+  try{
+    let f=parseInt(hex.slice(1),16), t=percent<0?0:255, p=Math.abs(percent)/100;
+    let R=f>>16, G=f>>8&0x00FF, B=f&0x0000FF;
+    const nr=Math.round((t-R)*p)+R, ng=Math.round((t-G)*p)+G, nb=Math.round((t-B)*p)+B;
+    return '#'+(0x1000000+nr*0x10000+ng*0x100+nb).toString(16).slice(1);
+  }catch(e){ return hex; }
+}
+function setRoute(route){
+  state.route = route;
+  location.hash = route;
+  $$('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.route===route));
+  render();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+window.addEventListener('hashchange', ()=>{
+  const r=(location.hash||'#form').slice(1); state.route=r.split('?')[0]||'form';
+  $$('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.route===state.route));
+  render();
+});
+$$('.nav-btn').forEach(b=> b.addEventListener('click', ()=> setRoute(b.dataset.route)) );
+$('#themeToggle').addEventListener('click', ()=>{
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur==='dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem(LS_KEYS.theme, next);
+  $('#themeToggle').textContent = next==='dark' ? '☀️' : '🌙';
+});
+(function initTheme(){
+  const saved = localStorage.getItem(LS_KEYS.theme);
+  if(saved){ document.documentElement.setAttribute('data-theme', saved); $('#themeToggle').textContent = saved==='dark'?'☀️':'🌙'; }
+})();
+
+function render(){
+  const app = $('#app');
+  if(state.route==='dashboard') app.innerHTML = ''; // will be built via DOM for charts
+  if(state.route==='form') return renderFormView();
+  if(state.route==='dashboard') return renderDashboardView();
+  if(state.route==='admin') return renderAdminEntry();
+  return renderFormView();
+}
+
+/* ==========================================================================
+   FORM VIEW
+   ========================================================================== */
+const STEP_META = [
+  {n:1,label:'ข้อมูลส่วนบุคคล',icon:'👤'},
+  {n:2,label:'องค์ประกอบร่างกาย',icon:'⚖️'},
+  {n:3,label:'ความเครียด/หลอดเลือด',icon:'❤️'},
+  {n:4,label:'ตรวจสอบและบันทึก',icon:'✅'}
+];
+
+function loadDraft(){ try{ return JSON.parse(localStorage.getItem(LS_KEYS.draft)||'null'); }catch(e){ return null; } }
+function saveDraft(){ localStorage.setItem(LS_KEYS.draft, JSON.stringify({data:state.formData, step:state.formStep, savedAt:nowIso()})); toast('บันทึกร่างเรียบร้อย','success'); }
+const autoDraft = debounce(()=>{ localStorage.setItem(LS_KEYS.draft, JSON.stringify({data:state.formData, step:state.formStep, savedAt:nowIso()})); }, 700);
+
+function renderFormView(){
+  applyBranding();
+  const app = $('#app');
+  const progressPct = Math.round((state.formStep-1)/3*100);
+  app.innerHTML = `
+  <div class="page">
+    <div class="landing-hero">
+      <h1>${escapeHtml(CONFIG.headerText)}</h1>
+      <p>กรอกข้อมูลผลตรวจสุขภาพเบื้องต้นให้ครบถ้วนตามลำดับขั้นตอน ระบบจะช่วยแปลผลเบื้องต้นให้อัตโนมัติ</p>
+    </div>
+    ${DataAPI.isDemo() ? `<div class="demo-banner">⚠️ หน้าบันทึกข้อมูลนี้กำลังทำงานในโหมดทดลอง (Demo Mode) — ข้อมูลที่บันทึกจะถูกเก็บใน Local Storage ของเบราว์เซอร์นี้เท่านั้น ${CONFIG.GAS_API_URL ? '(ขณะนี้เชื่อมต่อ Google Sheets จริงเฉพาะหน้า Dashboard ตามที่ตั้งค่าไว้ — ปรับ CONFIG.dashboardOnlyRemote เป็น false เพื่อให้หน้านี้บันทึกลง Google Sheets จริงด้วย)' : '(ตั้งค่า GAS_API_URL ในไฟล์เพื่อเปิดใช้งานจริง)'}</div>` : ''}
+    <div class="card-solid">
+      <div class="progress-wrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${progressPct}%"></div></div>
+        <div class="steps-row">
+          ${STEP_META.map(s=>`<div class="step-pill ${state.formStep===s.n?'active':(state.formStep>s.n?'done':'')}">${s.icon} ${s.label}</div>`).join('')}
+        </div>
+      </div>
+      <div id="formStepArea"></div>
+      <div class="actions-row">
+        ${state.formStep>1 ? `<button class="btn btn-secondary" id="btnBack">← ย้อนกลับ</button>` : `<span></span>`}
+        <button class="btn btn-ghost" id="btnSaveDraft">💾 บันทึกร่าง</button>
+        <button class="btn btn-secondary" id="btnClear">🗑 ล้างข้อมูล</button>
+        <span style="flex:1"></span>
+        ${state.formStep<4 ? `<button class="btn btn-primary" id="btnNext">ถัดไป →</button>` : `<button class="btn btn-primary" id="btnSubmit">✔ บันทึกข้อมูล</button>`}
+      </div>
+    </div>
+    <div class="footer-note">มีข้อมูลบันทึกไว้แล้ว? <a href="#dashboard">ดู Dashboard สรุปผล</a> หรือ <a href="#admin">เข้าสู่ระบบผู้ดูแล</a></div>
+  </div>`;
+
+  renderFormStep();
+  $('#btnBack')?.addEventListener('click', ()=>{ state.formStep--; renderFormView(); window.scrollTo({top:0,behavior:'smooth'}); });
+  $('#btnNext')?.addEventListener('click', ()=>{ if(validateStep(state.formStep)){ state.formStep++; renderFormView(); window.scrollTo({top:0,behavior:'smooth'}); } });
+  $('#btnSaveDraft').addEventListener('click', saveDraft);
+  $('#btnClear').addEventListener('click', ()=> confirmDialog('ล้างข้อมูลทั้งหมด','ต้องการล้างข้อมูลที่กรอกไว้ทั้งหมดหรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้', ()=>{ state.formData={}; state.formStep=1; localStorage.removeItem(LS_KEYS.draft); renderFormView(); toast('ล้างข้อมูลเรียบร้อย','warn'); }) );
+  if(state.formStep===4) $('#btnSubmit').addEventListener('click', submitForm);
+
+  // แจ้งเตือนถ้ามี draft ค้างอยู่ (ครั้งแรกที่เข้า)
+  if(!state._draftChecked){
+    state._draftChecked = true;
+    const draft = loadDraft();
+    if(draft && draft.data && Object.keys(draft.data).length && !Object.keys(state.formData).length){
+      setTimeout(()=>{
+        const m = openModal(`
+          <div class="modal-head"><h3>พบข้อมูลร่างที่บันทึกไว้</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+          <p style="font-size:13.5px;color:var(--text-muted);">บันทึกล่าสุดเมื่อ ${fmtDate(draft.savedAt)} ต้องการดำเนินการกรอกข้อมูลต่อจากที่ค้างไว้หรือไม่?</p>
+          <div class="actions-row">
+            <button class="btn btn-primary" id="resumeDraft">ดำเนินการต่อ</button>
+            <button class="btn btn-secondary" id="discardDraft">เริ่มใหม่</button>
+          </div>`);
+        $('#resumeDraft',m).onclick = ()=>{ state.formData=draft.data; state.formStep=draft.step||1; closeModal(); renderFormView(); };
+        $('#discardDraft',m).onclick = ()=>{ localStorage.removeItem(LS_KEYS.draft); closeModal(); };
+      }, 300);
+    }
+  }
+}
+
+function fieldValue(key){ return state.formData[key] !== undefined ? state.formData[key] : ''; }
+function setFieldValue(key,val){ state.formData[key]=val; autoDraft(); }
+
+function renderTextField(f){
+  const val = escapeHtml(fieldValue(f.key));
+  return `<div class="field" data-field="${f.key}">
+    <label>${escapeHtml(f.label)}${f.unit?` (${f.unit})`:''}${f.required?'<span class="req">*</span>':''}</label>
+    <input class="input" type="${f.type==='tel'?'tel':(f.type==='number'?'number':'text')}" id="f_${f.key}" value="${val}" ${f.min!==undefined?`min="${f.min}"`:''} ${f.max!==undefined?`max="${f.max}"`:''} placeholder="${f.type==='number'?'0':'กรอก'+f.label}">
+    ${f.note?`<div class="hint">ℹ️ ${escapeHtml(f.note)}</div>`:''}
+    <div class="err">กรุณากรอก${escapeHtml(f.label)}ให้ถูกต้อง</div>
+  </div>`;
+}
+function renderSelectField(f){
+  const val = fieldValue(f.key);
+  return `<div class="field" data-field="${f.key}">
+    <label>${escapeHtml(f.label)}${f.required?'<span class="req">*</span>':''}</label>
+    <div class="choice-group" id="f_${f.key}">
+      ${f.options.map(o=>`<div class="choice-card ${val===o?'selected':''}" data-value="${escapeHtml(o)}">${o==='ชาย'?'👨':'👩'} <span>${escapeHtml(o)}</span></div>`).join('')}
+    </div>
+    <div class="err">กรุณาเลือก${escapeHtml(f.label)}</div>
+  </div>`;
+}
+function renderGaugeField(f){
+  const val = fieldValue(f.key)!=='' ? fieldValue(f.key) : 50;
+  return `<div class="field" data-field="${f.key}">
+    <label>${escapeHtml(f.label)} <span class="gauge-value" id="v_${f.key}">${val}</span></label>
+    <div class="slider-wrap"><div class="slider-track"></div><input class="gauge" type="range" min="0" max="100" value="${val}" id="f_${f.key}"></div>
+    <div class="gauge-labels"><span>😣 ไม่ดี</span><span>😐 ปกติ</span><span>😊 ดี</span></div>
+  </div>`;
+}
+
+function stepHtml(stepNum){
+  const fields = FIELD_SCHEMA.filter(f=>f.step===stepNum);
+  if(stepNum===1){
+    const diseaseFields = fields.filter(f=>f.group==='disease');
+    const otherFields = fields.filter(f=>!f.group && f.key!=='disease_other_detail');
+    return `
+    <div class="section-title"><div class="ico">👤</div><div><h3>ข้อมูลส่วนบุคคล</h3><small>ข้อมูลพื้นฐานของผู้เข้ารับการตรวจ</small></div></div>
+    <div class="grid grid-2">
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='first_name'))}
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='last_name'))}
+    </div>
+    <div class="grid grid-2">
+      ${renderSelectField(FIELD_SCHEMA.find(f=>f.key==='gender'))}
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='age'))}
+    </div>
+    <div class="grid grid-2">
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='occupation'))}
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='phone'))}
+    </div>
+    <div class="grid grid-2">
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='height_cm'))}
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='waist_cm'))}
+    </div>
+    <div class="field">
+      <label>โรคประจำตัว</label>
+      <div class="choice-group" id="diseaseGroup">
+        ${diseaseFields.map(f=>`<div class="choice-card square ${fieldValue(f.key)===true?'selected':''}" data-key="${f.key}"><div class="dot"></div>${escapeHtml(f.label)}</div>`).join('')}
+      </div>
+    </div>
+    <div class="field ${fieldValue('disease_other')? '':'hidden'}" id="otherDetailWrap">
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='disease_other_detail'))}
+    </div>
+    <div class="info-box">📏 <b>เกณฑ์รอบเอวมาตรฐานเอเชีย:</b> ผู้ชาย ไม่เกิน 90 ซม. (36 นิ้ว) / ผู้หญิง ไม่เกิน 80 ซม. (32 นิ้ว)</div>
+    `;
+  }
+  if(stepNum===2){
+    return `
+    <div class="section-title"><div class="ico">⚖️</div><div><h3>ผลตรวจองค์ประกอบร่างกาย (BIA)</h3><small>ข้อมูลจากเครื่องวิเคราะห์องค์ประกอบร่างกาย</small></div></div>
+    <div class="grid grid-3">
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='weight_kg'))}
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='body_fat_percent'))}
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='muscle_mass_kg'))}
+    </div>
+    <div class="grid grid-3">
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='bmi'))}
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='bmr'))}
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='body_age'))}
+    </div>
+    <div class="grid grid-2">
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='body_water_percent'))}
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='visceral_fat_level'))}
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="showBiaReference()">📖 ดูเกณฑ์อ้างอิงทั้งหมด (BMI / ไขมัน / กล้ามเนื้อ / น้ำ / ไขมันช่องท้อง)</button>
+    `;
+  }
+  if(stepNum===3){
+    const vFields = fields.filter(f=>f.group==='vascular');
+    return `
+    <div class="section-title"><div class="ico">🧠</div><div><h3>ผลตรวจความเครียด</h3><small>ค่ายิ่งสูงยิ่งดี (0 = ไม่ดี, 100 = ดีมาก)</small></div></div>
+    <div class="grid grid-3">
+      ${renderGaugeField(FIELD_SCHEMA.find(f=>f.key==='physical_stress'))}
+      ${renderGaugeField(FIELD_SCHEMA.find(f=>f.key==='mental_stress'))}
+      ${renderGaugeField(FIELD_SCHEMA.find(f=>f.key==='stress_level'))}
+    </div>
+    <div class="section-title" style="margin-top:22px;"><div class="ico">🩸</div><div><h3>ผลตรวจความยืดหยุ่นของหลอดเลือด</h3><small>ค่ายิ่งสูง = หลอดเลือดยิ่งยืดหยุ่นและอ่อนนุ่ม</small></div></div>
+    <div class="grid grid-2">
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='peripheral_artery_elasticity'))}
+      ${renderTextField(FIELD_SCHEMA.find(f=>f.key==='artery_elasticity'))}
+    </div>
+    <div class="section-title" style="margin-top:22px;"><div class="ico">🫀</div><div><h3>ผลตรวจสุขภาพหลอดเลือด (Type1-7)</h3><small>ระบุสัดส่วนร้อยละของแต่ละ Type รวมกันไม่เกิน 100% (อาจพบ Type เดียว 100% หรือกระจายหลาย Type)</small></div></div>
+    <div class="grid grid-4">
+      ${vFields.map(f=>renderTextField(f)).join('')}
+    </div>
+    <div class="hint" id="vascularSumHint">รวมทั้งหมด: 0%</div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="showVascularReference()">📖 ดูคำอธิบาย Type1-7</button>
+    `;
+  }
+  return renderReviewStep();
+}
+
+function renderFormStep(){
+  $('#formStepArea').innerHTML = stepHtml(state.formStep);
+  bindStepEvents(state.formStep);
+}
+
+function bindStepEvents(stepNum){
+  // text/number inputs
+  $$('#formStepArea input.input').forEach(inp=>{
+    const key = inp.id.replace('f_','');
+    inp.addEventListener('input', ()=>{
+      setFieldValue(key, inp.value);
+      clearFieldError(key);
+      if(['height_cm','weight_kg'].includes(key)) recomputeBmi();
+      if(key.startsWith('vascular_type')) updateVascularSum();
+    });
+  });
+  // gauge sliders — capture the visible default immediately so it isn't silently omitted if the user never drags it
+  $$('#formStepArea input.gauge').forEach(inp=>{
+    const key = inp.id.replace('f_','');
+    if(fieldValue(key)==='') setFieldValue(key, Number(inp.value));
+    inp.addEventListener('input', ()=>{ setFieldValue(key, Number(inp.value)); $('#v_'+key).textContent = inp.value; });
+  });
+  // gender choice cards
+  const genderGroup = $('#f_gender');
+  if(genderGroup){
+    $$('.choice-card', genderGroup).forEach(card=>{
+      card.addEventListener('click', ()=>{
+        $$('.choice-card', genderGroup).forEach(c=>c.classList.remove('selected'));
+        card.classList.add('selected');
+        setFieldValue('gender', card.dataset.value);
+        clearFieldError('gender');
+      });
+    });
+  }
+  // disease checkboxes
+  const diseaseGroup = $('#diseaseGroup');
+  if(diseaseGroup){
+    $$('.choice-card', diseaseGroup).forEach(card=>{
+      card.addEventListener('click', ()=>{
+        card.classList.toggle('selected');
+        const key = card.dataset.key;
+        setFieldValue(key, card.classList.contains('selected'));
+        if(key==='disease_other'){
+          $('#otherDetailWrap').classList.toggle('hidden', !card.classList.contains('selected'));
+        }
+      });
+    });
+  }
+  if(stepNum===3) updateVascularSum();
+}
+function clearFieldError(key){ $(`.field[data-field="${key}"]`)?.classList.remove('invalid'); }
+function recomputeBmi(){
+  const h = Number(fieldValue('height_cm')), w = Number(fieldValue('weight_kg'));
+  if(h>0 && w>0){
+    const bmi = Math.round((w/((h/100)**2))*100)/100;
+    setFieldValue('bmi', bmi);
+    const bmiInput = $('#f_bmi'); if(bmiInput) bmiInput.value = bmi;
+  }
+}
+function updateVascularSum(){
+  const keys=['vascular_type1_percent','vascular_type2_percent','vascular_type3_percent','vascular_type4_percent','vascular_type5_percent','vascular_type6_percent','vascular_type7_percent'];
+  const sum = keys.reduce((a,k)=> a + (Number(fieldValue(k))||0), 0);
+  const hint = $('#vascularSumHint');
+  if(hint){
+    hint.textContent = `รวมทั้งหมด: ${sum}%` + (sum>100 ? ' — เกิน 100% กรุณาตรวจสอบ' : '');
+    hint.style.color = sum>100 ? 'var(--danger)' : 'var(--text-muted)';
+  }
+}
+
+function validateStep(stepNum){
+  const fields = FIELD_SCHEMA.filter(f=>f.step===stepNum && f.required);
+  let ok = true;
+  fields.forEach(f=>{
+    const val = fieldValue(f.key);
+    const box = $(`.field[data-field="${f.key}"]`);
+    let valid = val !== '' && val !== undefined && val !== null;
+    if(valid && f.type==='number'){
+      const n = Number(val);
+      valid = !isNaN(n) && (f.min===undefined || n>=f.min) && (f.max===undefined || n<=f.max);
+    }
+    if(!valid){ ok=false; box?.classList.add('invalid'); } else { box?.classList.remove('invalid'); }
+  });
+  if(!ok) toast('กรุณากรอกข้อมูลที่จำเป็น (*) ให้ครบถ้วนและถูกต้อง','error');
+  return ok;
+}
+
+function renderReviewStep(){
+  const d = state.formData;
+  const bmiC = classifyBMI(d.bmi), waistC = classifyWaist(d.waist_cm,d.gender), bfC = classifyBodyFat(d.body_fat_percent,d.gender,d.age),
+        mmC = classifyMuscleMass(d.muscle_mass_kg,d.weight_kg,d.gender), vfC = classifyVisceralFat(d.visceral_fat_level),
+        bwC = classifyBodyWater(d.body_water_percent,d.gender), sC = classifyStressGauge(d.stress_level), domType = dominantVascularType(d);
+  const badge = c => c ? `<span class="badge badge-${c.tone}">${escapeHtml(c.label)}</span>` : `<span class="badge badge-gray">ไม่มีข้อมูล</span>`;
+  return `
+  <div class="section-title"><div class="ico">✅</div><div><h3>ตรวจสอบข้อมูลก่อนบันทึก</h3><small>ระบบแปลผลเบื้องต้นให้อัตโนมัติตามเกณฑ์ของแบบฟอร์มต้นฉบับ</small></div></div>
+  <div class="grid grid-2">
+    <div class="card-solid">
+      <b>👤 ${escapeHtml(d.first_name||'-')} ${escapeHtml(d.last_name||'-')}</b>
+      <p class="hint" style="margin-top:6px;">${escapeHtml(d.gender||'-')} • อายุ ${escapeHtml(d.age||'-')} ปี • ${escapeHtml(d.occupation||'-')}</p>
+      <p class="hint">ส่วนสูง ${escapeHtml(d.height_cm||'-')} ซม. • รอบเอว ${escapeHtml(d.waist_cm||'-')} ซม. ${badge(waistC)}</p>
+    </div>
+    <div class="card-solid">
+      <p><b>BMI:</b> ${escapeHtml(d.bmi||'-')} ${badge(bmiC)}</p>
+      <p style="margin-top:8px;"><b>ไขมันในร่างกาย:</b> ${escapeHtml(d.body_fat_percent||'-')}% ${badge(bfC)}</p>
+      <p style="margin-top:8px;"><b>มวลกล้ามเนื้อ:</b> ${mmC?mmC.pct+'%':'-'} ${badge(mmC)}</p>
+    </div>
+    <div class="card-solid">
+      <p><b>ไขมันในช่องท้อง:</b> ระดับ ${escapeHtml(d.visceral_fat_level||'-')} ${badge(vfC)}</p>
+      <p style="margin-top:8px;"><b>น้ำในร่างกาย:</b> ${escapeHtml(d.body_water_percent||'-')}% ${badge(bwC)}</p>
+    </div>
+    <div class="card-solid">
+      <p><b>ระดับความเครียด:</b> ${escapeHtml(d.stress_level||'-')} ${badge(sC)}</p>
+      <p style="margin-top:8px;"><b>สภาวะหลอดเลือดเด่น:</b> ${domType?`<span class="badge badge-blue">${domType}</span>`:'ไม่มีข้อมูล'}</p>
+    </div>
+  </div>
+  <div class="info-box">${domType ? '🫀 '+escapeHtml(VASCULAR_TYPE_DESC[domType]) : 'กรุณากรอกสัดส่วน Type หลอดเลือดในขั้นตอนที่ 3 เพื่อดูคำอธิบาย'}</div>
+  <p class="hint" style="margin-top:14px;">กดปุ่ม "บันทึกข้อมูล" ด้านล่างเพื่อยืนยันการบันทึกลงระบบ ${DataAPI.isDemo()?'(Demo Mode)':'(Google Sheets)'}</p>
+  `;
+}
+
+async function submitForm(){
+  if(state.submitting) return;
+  // ตรวจสอบทุก step ก่อนบันทึกจริง
+  for(let s=1;s<=3;s++){ if(!validateStep(s)){ state.formStep=s; renderFormView(); toast('กรุณาตรวจสอบข้อมูลในขั้นตอนที่ '+s,'error'); return; } }
+  const sumVascular = ['vascular_type1_percent','vascular_type2_percent','vascular_type3_percent','vascular_type4_percent','vascular_type5_percent','vascular_type6_percent','vascular_type7_percent'].reduce((a,k)=>a+(Number(state.formData[k])||0),0);
+  if(sumVascular>100){ toast('สัดส่วน Type หลอดเลือดรวมกันเกิน 100% กรุณาตรวจสอบ','error'); state.formStep=3; renderFormView(); return; }
+
+  state.submitting = true;
+  const btn = $('#btnSubmit');
+  if(btn){ btn.disabled=true; btn.innerHTML = '<span class="spinner"></span> กำลังบันทึก...'; }
+  try{
+    const res = await DataAPI.create(state.formData);
+    if(res.success){
+      toast(res.message||'บันทึกข้อมูลสำเร็จ','success');
+      localStorage.removeItem(LS_KEYS.draft);
+      showSuccessScreen(res.data);
+    } else {
+      toast(res.message||'บันทึกข้อมูลไม่สำเร็จ','error');
+      if(btn){ btn.disabled=false; btn.innerHTML='✔ บันทึกข้อมูล'; }
+    }
+  } catch(e){
+    toast('เกิดข้อผิดพลาด: '+e.message,'error');
+    if(btn){ btn.disabled=false; btn.innerHTML='✔ บันทึกข้อมูล'; }
+  }
+  state.submitting = false;
+}
+function showSuccessScreen(record){
+  $('#app').innerHTML = `
+  <div class="page">
+    <div class="card-solid" style="text-align:center;padding:50px 24px;">
+      <div style="font-size:56px;">🎉</div>
+      <h2 style="margin-top:14px;">บันทึกข้อมูลสำเร็จ!</h2>
+      <p class="hint" style="margin-top:8px;">รหัสรายการ: <b>${escapeHtml(record.record_id)}</b></p>
+      <div class="actions-row" style="justify-content:center;">
+        <button class="btn btn-primary" id="btnNewRecord">📝 บันทึกรายการใหม่</button>
+        <button class="btn btn-secondary" id="btnGoDash">📊 ดู Dashboard</button>
+      </div>
+    </div>
+  </div>`;
+  $('#btnNewRecord').onclick = ()=>{ state.formData={}; state.formStep=1; setRoute('form'); };
+  $('#btnGoDash').onclick = ()=>{ setRoute('dashboard'); };
+}
+
+function showBiaReference(){
+  openModal(`
+  <div class="modal-head"><h3>📖 เกณฑ์อ้างอิงองค์ประกอบร่างกาย</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="info-box" style="margin-bottom:10px;"><b>BMI (ดัชนีมวลกาย)</b> = น้ำหนัก(กก.) ÷ [ส่วนสูง(ม.) × ส่วนสูง(ม.)]<br>
+  &lt;18.5 น้ำหนักต่ำกว่าเกณฑ์ • 18.5-22.9 ปกติ • 23-24.9 น้ำหนักเกิน • 25-29.9 โรคอ้วน • ≥30 โรคอ้วนระดับรุนแรง</div>
+  <table class="ref-table"><tr><th>อายุ</th><th colspan="3">หญิง (ปกติ/เริ่มอ้วน/อ้วน)</th></tr>
+  <tr><td>18-39</td><td>21-33%</td><td>34-39%</td><td>&gt;40%</td></tr>
+  <tr><td>40-59</td><td>20-34%</td><td>35-40%</td><td>&gt;41%</td></tr>
+  <tr><td>&gt;60</td><td>25-36%</td><td>37-42%</td><td>&gt;43%</td></tr></table>
+  <table class="ref-table" style="margin-top:8px;"><tr><th>อายุ</th><th colspan="3">ชาย (ปกติ/เริ่มอ้วน/อ้วน)</th></tr>
+  <tr><td>18-39</td><td>9-20%</td><td>21-25%</td><td>&gt;26%</td></tr>
+  <tr><td>40-59</td><td>11-22%</td><td>23-28%</td><td>&gt;29%</td></tr>
+  <tr><td>&gt;60</td><td>20-25%</td><td>26-30%</td><td>&gt;31%</td></tr></table>
+  <div class="info-box" style="margin-top:10px;">
+  <b>มวลกล้ามเนื้อ</b> % = (มวลกล้ามเนื้อ ÷ น้ำหนักตัว) × 100 — เกณฑ์ปกติ หญิง 25-30% / ชาย 35-40% ของน้ำหนักตัว<br>
+  <b>น้ำในร่างกาย</b> — หญิง 45-60% / ชาย 50-65%<br>
+  <b>ไขมันในช่องท้อง</b> — 1-9 ปกติ / 10-14 เริ่มมีความเสี่ยง / 15-19 มีความเสี่ยงสูง<br>
+  <b>BMR</b> คืออัตราการเผาผลาญพลังงานขั้นพื้นฐานที่ร่างกายต้องใช้ขณะพัก • <b>BODY AGE</b> คืออายุของระบบเผาผลาญ
+  </div>`);
+}
+function showVascularReference(){
+  openModal(`
+  <div class="modal-head"><h3>📖 คำอธิบาย Type สภาวะหลอดเลือด</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <p class="hint" style="margin-bottom:10px;">แบ่งเป็น 7 Types ตามระดับเปอร์เซ็นต์ (อาจพบ Type เดียว 100% หรือกระจายหลาย Type)</p>
+  ${Object.entries(VASCULAR_TYPE_DESC).map(([t,d])=>`<div class="info-box" style="margin-bottom:8px;"><b>${t}:</b> ${escapeHtml(d)}</div>`).join('')}
+  `);
+}
+
+/* ==========================================================================
+   DASHBOARD VIEW (สาธารณะ)
+   ========================================================================== */
+async function renderDashboardView(){
+  applyBranding();
+  const app = $('#app');
+  app.innerHTML = `
+  <div class="page">
+    <div class="landing-hero" style="text-align:left;padding-bottom:6px;">
+      <h1 style="font-size:24px;">📊 Dashboard สรุปผลตรวจสุขภาพ</h1>
+      <p>ข้อมูลสรุปภาพรวมแบบไม่ระบุตัวตน สามารถกรองและคลิกดูรายละเอียดได้</p>
+    </div>
+    <div class="card-solid">
+      <div class="toolbar">
+        <select class="input" id="filterGender" style="max-width:160px;"><option value="">ทุกเพศ</option><option value="ชาย">ชาย</option><option value="หญิง">หญิง</option></select>
+        <input class="input" type="date" id="filterFrom" style="max-width:160px;" title="ตั้งแต่วันที่">
+        <input class="input" type="date" id="filterTo" style="max-width:160px;" title="ถึงวันที่">
+        <input class="input" type="text" id="filterSearch" placeholder="ค้นหารหัสรายการ..." style="max-width:200px;">
+        <button class="btn btn-secondary btn-sm" id="btnResetFilter">↺ รีเซ็ตตัวกรอง</button>
+        <button class="btn btn-primary btn-sm" id="btnRefreshDash">⟳ รีเฟรช</button>
+      </div>
+      <p class="hint" id="lastUpdatedLine">กำลังโหลดข้อมูล...</p>
+    </div>
+    <div id="dashBody"><div class="empty-state"><div class="spinner dark" style="margin:0 auto;width:28px;height:28px;"></div><p style="margin-top:10px;">กำลังโหลดข้อมูล...</p></div></div>
+  </div>`;
+
+  $('#filterGender').addEventListener('change', loadDashboard);
+  $('#filterFrom').addEventListener('change', loadDashboard);
+  $('#filterTo').addEventListener('change', loadDashboard);
+  $('#filterSearch').addEventListener('input', debounce(loadDashboard,400));
+  $('#btnResetFilter').addEventListener('click', ()=>{ $('#filterGender').value=''; $('#filterFrom').value=''; $('#filterTo').value=''; $('#filterSearch').value=''; loadDashboard(); });
+  $('#btnRefreshDash').addEventListener('click', loadDashboard);
+  await loadDashboard();
+}
+
+function currentDashFilters(){
+  return { gender: $('#filterGender')?.value||'', date_from: $('#filterFrom')?.value||'', date_to: $('#filterTo')?.value||'', q: $('#filterSearch')?.value||'' };
+}
+
+async function loadDashboard(){
+  const filters = currentDashFilters();
+  const res = await DataAPI.summary(filters);
+  if(!res.success){ $('#dashBody').innerHTML = `<div class="empty-state"><div class="emoji">⚠️</div><p>${escapeHtml(res.message||'ไม่สามารถโหลดข้อมูลได้')}</p></div>`; return; }
+  const s = res.data;
+  $('#lastUpdatedLine').textContent = `อัปเดตล่าสุด: ${fmtDate(s.lastUpdated)} • จำนวนรายการทั้งหมด: ${s.total} รายการ`;
+  if(!s.total){ $('#dashBody').innerHTML = `<div class="empty-state"><div class="emoji">📭</div><p>ยังไม่มีข้อมูลตรงกับเงื่อนไขที่กรอง</p></div>`; return; }
+
+  const genderPct = s.total ? Math.round((s.genderCount['หญิง']||0)/s.total*100) : 0;
+  $('#dashBody').innerHTML = `
+  <div class="kpi-grid">
+    ${kpiCard('👥','จำนวนผู้เข้ารับการตรวจ', s.total, 'รายการ', '#0d9488','kpi-total')}
+    ${kpiCard('⚖️','ค่าเฉลี่ย BMI', s.avg.bmi ?? '-', '', '#6366f1','kpi-bmi')}
+    ${kpiCard('📏','รอบเอวเกินเกณฑ์', s.waistRisk['เกินเกณฑ์มาตรฐานเอเชีย']||0, `จาก ${s.total} ราย (${s.total?Math.round((s.waistRisk['เกินเกณฑ์มาตรฐานเอเชีย']||0)/s.total*100):0}%)`, '#f59e0b','kpi-waist')}
+    ${kpiCard('🧠','ระดับความเครียดเฉลี่ย', s.avg.stress_level ?? '-', 'จาก 100 (ยิ่งสูงยิ่งดี)', '#ef4444','kpi-stress')}
+  </div>
+  <div class="grid grid-2" style="margin-top:16px;">
+    ${chartCard('bmiChart','สัดส่วนหมวด BMI', s.bmiCategory, ['#3b82f6','#10b981','#f59e0b','#ef4444','#7c2d12'])}
+    ${chartCard('genderChart','สัดส่วนเพศ', s.genderCount, ['#6366f1','#ec4899'])}
+    ${chartCard('waistChart','ความเสี่ยงรอบเอว', s.waistRisk, ['#10b981','#f59e0b'])}
+    ${chartCard('visceralChart','ระดับไขมันในช่องท้อง', s.visceralRisk, ['#10b981','#f59e0b','#ef4444'])}
+    ${chartCard('stressChart','การกระจายระดับความเครียด', s.stressBuckets, ['#ef4444','#f59e0b','#10b981'])}
+    ${chartCard('vascularChart','สัดส่วน Type หลอดเลือดเด่น', s.vascularTypeDominant, ['#a7f3d0','#6ee7b7','#34d399','#10b981','#059669','#047857','#065f46'])}
+  </div>
+  <div class="card-solid" style="margin-top:16px;">
+    <div class="section-title"><div class="ico">🩺</div><div><h3>ความชุกโรคประจำตัว</h3><small>ร้อยละของผู้เข้ารับการตรวจที่มีโรคประจำตัวแต่ละประเภท (ไม่ระบุตัวตน)</small></div></div>
+    <div class="grid grid-4">
+      ${diseaseBar('เบาหวาน', s.diseaseCount.diabetes, s.total)}
+      ${diseaseBar('ความดัน', s.diseaseCount.hypertension, s.total)}
+      ${diseaseBar('ไขมัน', s.diseaseCount.lipid, s.total)}
+      ${diseaseBar('อื่นๆ', s.diseaseCount.other, s.total)}
+    </div>
+  </div>
+  <div class="card-solid" style="margin-top:16px;">
+    <div class="section-title"><div class="ico">📈</div><div><h3>ค่าเฉลี่ยตัวชี้วัดสุขภาพ</h3></div></div>
+    <div class="grid grid-4">
+      ${avgTile('น้ำหนักเฉลี่ย', s.avg.weight_kg,'กก.')}
+      ${avgTile('ไขมันร่างกายเฉลี่ย', s.avg.body_fat_percent,'%')}
+      ${avgTile('มวลกล้ามเนื้อเฉลี่ย', s.avg.muscle_mass_kg,'กก.')}
+      ${avgTile('น้ำในร่างกายเฉลี่ย', s.avg.body_water_percent,'%')}
+      ${avgTile('ไขมันในช่องท้องเฉลี่ย', s.avg.visceral_fat_level,'ระดับ')}
+      ${avgTile('BMR เฉลี่ย', s.avg.bmr,'kcal')}
+      ${avgTile('อายุเฉลี่ย', s.avg.age,'ปี')}
+      ${avgTile('รอบเอวเฉลี่ย', s.avg.waist_cm,'ซม.')}
+    </div>
+  </div>
+  <div class="footer-note">🔒 หน้านี้แสดงเฉพาะข้อมูลสรุปแบบไม่ระบุตัวตน ไม่มีการแสดงชื่อ เบอร์โทรศัพท์ หรือข้อมูลส่วนบุคคลใดๆ</div>
+  `;
+  drawDonut('bmiChart', s.bmiCategory, ['#3b82f6','#10b981','#f59e0b','#ef4444','#7c2d12']);
+  drawDonut('genderChart', s.genderCount, ['#6366f1','#ec4899']);
+  drawBars('waistChart', s.waistRisk, ['#10b981','#f59e0b']);
+  drawBars('visceralChart', s.visceralRisk, ['#10b981','#f59e0b','#ef4444']);
+  drawBars('stressChart', s.stressBuckets, ['#ef4444','#f59e0b','#10b981']);
+  drawBars('vascularChart', s.vascularTypeDominant, ['#a7f3d0','#6ee7b7','#34d399','#10b981','#059669','#047857','#065f46']);
+}
+function kpiCard(icon,label,value,sub,color,id){
+  return `<div class="card kpi-card" style="--kpi-color:${color}" id="${id}">
+    <div style="font-size:20px;">${icon}</div>
+    <div class="kpi-label">${escapeHtml(label)}</div>
+    <div class="kpi-value">${value}</div>
+    <div class="kpi-sub">${escapeHtml(sub)}</div>
+  </div>`;
+}
+function avgTile(label,value,unit){
+  return `<div class="card-solid" style="padding:14px;text-align:center;">
+    <div class="hint">${escapeHtml(label)}</div>
+    <div style="font-size:22px;font-weight:800;color:var(--primary-dark);margin-top:4px;">${value ?? '-'}</div>
+    <div class="hint">${unit}</div>
+  </div>`;
+}
+function diseaseBar(label,count,total){
+  const pct = total ? Math.round(count/total*100) : 0;
+  return `<div>
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;"><b>${escapeHtml(label)}</b><span>${count} ราย (${pct}%)</span></div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+  </div>`;
+}
+function chartCard(id,title,dataObj,colors){
+  return `<div class="card chart-card">
+    <h4 style="font-size:14px;margin-bottom:8px;">${escapeHtml(title)}</h4>
+    <svg id="${id}" viewBox="0 0 300 180"></svg>
+  </div>`;
+}
+function drawDonut(id, dataObj, colors){
+  const svg = document.getElementById(id); if(!svg) return;
+  const entries = Object.entries(dataObj).filter(([k,v])=>v>0);
+  const total = entries.reduce((a,[,v])=>a+v,0);
+  const cx=90, cy=90, r=62, rInner=36;
+  let angle = -Math.PI/2;
+  let paths = '';
+  if(total===0){ svg.innerHTML = `<text x="150" y="95" text-anchor="middle" fill="var(--text-muted)" font-size="12">ไม่มีข้อมูล</text>`; return; }
+  entries.forEach(([label,val],i)=>{
+    const frac = val/total; const sweep = frac*Math.PI*2;
+    const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
+    const x2=cx+r*Math.cos(angle+sweep), y2=cy+r*Math.sin(angle+sweep);
+    const large = sweep>Math.PI?1:0;
+    const ix1=cx+rInner*Math.cos(angle+sweep), iy1=cy+rInner*Math.sin(angle+sweep);
+    const ix2=cx+rInner*Math.cos(angle), iy2=cy+rInner*Math.sin(angle);
+    paths += `<path d="M${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} L${ix1},${iy1} A${rInner},${rInner} 0 ${large} 0 ${ix2},${iy2} Z" fill="${colors[i%colors.length]}"><title>${label}: ${val}</title></path>`;
+    angle += sweep;
+  });
+  const legend = entries.map(([label,val],i)=>`<g transform="translate(190,${20+i*22})"><rect width="11" height="11" rx="3" fill="${colors[i%colors.length]}"/><text x="17" y="10" font-size="10.5" fill="var(--text)">${escapeHtml(label)} (${val})</text></g>`).join('');
+  svg.innerHTML = `<g>${paths}</g><text x="90" y="94" text-anchor="middle" font-size="16" font-weight="700" fill="var(--text)">${total}</text>${legend}`;
+}
+function drawBars(id, dataObj, colors){
+  const svg = document.getElementById(id); if(!svg) return;
+  const entries = Object.entries(dataObj);
+  const max = Math.max(1, ...entries.map(([,v])=>v));
+  const barH = 20, gap=8, top=10, chartW=170;
+  let bars='';
+  entries.forEach(([label,val],i)=>{
+    const y = top + i*(barH+gap);
+    const w = (val/max)*chartW;
+    bars += `<text x="0" y="${y+14}" font-size="10.5" fill="var(--text)">${escapeHtml(label)}</text>
+      <rect x="95" y="${y}" width="${chartW}" height="${barH}" rx="6" fill="var(--surface-2)"/>
+      <rect x="95" y="${y}" width="${Math.max(2,w)}" height="${barH}" rx="6" fill="${colors[i%colors.length]}"><title>${label}: ${val}</title></rect>
+      <text x="${95+chartW+8}" y="${y+14}" font-size="10.5" fill="var(--text)">${val}</text>`;
+  });
+  svg.setAttribute('viewBox', `0 0 300 ${top + entries.length*(barH+gap)+10}`);
+  svg.innerHTML = bars;
+}
+
+/* ==========================================================================
+   ADMIN VIEW (Login + Dashboard ผู้ดูแล)
+   ========================================================================== */
+function isAdminLoggedIn(){ return !!localStorage.getItem(LS_KEYS.token); }
+function renderAdminEntry(){
+  applyBranding();
+  if(!isAdminLoggedIn()) return renderAdminLogin();
+  return renderAdminPanel();
+}
+function renderAdminLogin(){
+  $('#app').innerHTML = `
+  <div class="page" style="max-width:420px;">
+    <div class="card-solid" style="margin-top:30px;">
+      <div style="text-align:center;margin-bottom:18px;">
+        <div style="font-size:40px;">🔐</div>
+        <h2 style="margin-top:8px;">เข้าสู่ระบบผู้ดูแล</h2>
+        <p class="hint" style="margin-top:4px;">บัญชีทดสอบเริ่มต้น: admin / admin</p>
+      </div>
+      <div class="field"><label>ชื่อผู้ใช้</label><input class="input" id="loginUser" placeholder="username"></div>
+      <div class="field"><label>รหัสผ่าน</label><input class="input" id="loginPass" type="password" placeholder="password"></div>
+      <button class="btn btn-primary btn-block" id="btnLogin">เข้าสู่ระบบ</button>
+      <p class="hint" style="text-align:center;margin-top:14px;"><a href="#form">← กลับหน้าบันทึกข้อมูล</a></p>
+    </div>
+  </div>`;
+  const doLogin = async ()=>{
+    const u = $('#loginUser').value.trim(), p = $('#loginPass').value;
+    if(!u||!p) return toast('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน','error');
+    const btn = $('#btnLogin'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> กำลังตรวจสอบ...';
+    const res = await DataAPI.adminLogin(u,p);
+    if(res.success){ localStorage.setItem(LS_KEYS.token+'_user', JSON.stringify(u)); toast('เข้าสู่ระบบสำเร็จ','success'); renderAdminPanel(); }
+    else { toast(res.message||'เข้าสู่ระบบไม่สำเร็จ','error'); btn.disabled=false; btn.innerHTML='เข้าสู่ระบบ'; }
+  };
+  $('#btnLogin').addEventListener('click', doLogin);
+  $('#loginPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+}
+function adminLogout(){
+  localStorage.removeItem(LS_KEYS.token);
+  toast('ออกจากระบบแล้ว','warn');
+  setRoute('admin');
+}
+
+async function renderAdminPanel(){
+  const app = $('#app');
+  app.innerHTML = `
+  <div class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+      <h2>🔐 แผงควบคุมผู้ดูแลระบบ</h2>
+      <button class="btn btn-secondary btn-sm" id="btnLogout">ออกจากระบบ</button>
+    </div>
+    <div class="tab-strip">
+      <button class="tab-btn ${state.adminTab==='records'?'active':''}" data-tab="records">📋 รายการข้อมูล</button>
+      <button class="tab-btn ${state.adminTab==='settings'?'active':''}" data-tab="settings">⚙️ ตั้งค่าระบบ</button>
+    </div>
+    <div id="adminTabBody"></div>
+  </div>`;
+  $('#btnLogout').addEventListener('click', adminLogout);
+  $$('.tab-btn').forEach(b=> b.addEventListener('click', ()=>{ state.adminTab=b.dataset.tab; renderAdminPanel(); }) );
+  if(state.adminTab==='records') await renderAdminRecords(); else renderAdminSettings();
+}
+
+async function renderAdminRecords(){
+  const body = $('#adminTabBody');
+  body.innerHTML = `
+  <div class="card-solid">
+    <div class="toolbar">
+      <input class="input" id="admSearch" placeholder="🔎 ค้นหาชื่อ/รหัสรายการ/เบอร์โทร">
+      <select class="input" id="admGender" style="max-width:150px;"><option value="">ทุกเพศ</option><option value="ชาย">ชาย</option><option value="หญิง">หญิง</option></select>
+      <select class="input" id="admStatus" style="max-width:150px;"><option value="">ทุกสถานะ</option><option value="active">ใช้งาน</option><option value="deleted">ลบแล้ว</option></select>
+      <button class="btn btn-primary btn-sm" id="admFilterBtn">กรอง</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-secondary btn-sm" id="admExportCsv">⬇ Excel/CSV</button>
+      <button class="btn btn-secondary btn-sm" id="admExportJson">⬇ JSON</button>
+      <button class="btn btn-secondary btn-sm" id="admPrint">🖨 พิมพ์รายงาน</button>
+      <button class="btn btn-primary btn-sm" id="admAddNew">＋ เพิ่มรายการ</button>
+    </div>
+    <div class="table-wrap"><div id="admTableArea" class="empty-state">กำลังโหลด...</div></div>
+  </div>`;
+  $('#admFilterBtn').addEventListener('click', loadAdminRecords);
+  $('#admSearch').addEventListener('input', debounce(loadAdminRecords,400));
+  $('#admExportCsv').addEventListener('click', exportCurrentCsv);
+  $('#admExportJson').addEventListener('click', exportCurrentJson);
+  $('#admPrint').addEventListener('click', ()=>window.print());
+  $('#admAddNew').addEventListener('click', ()=>openRecordEditor(null));
+  await loadAdminRecords();
+}
+let _adminCurrentList = [];
+async function loadAdminRecords(){
+  const params = { q: $('#admSearch').value, gender: $('#admGender').value, status: $('#admStatus').value };
+  const res = await DataAPI.list(params);
+  if(!res.success){ $('#admTableArea').innerHTML = `<div class="empty-state">⚠️ ${escapeHtml(res.message||'โหลดข้อมูลไม่สำเร็จ')}</div>`; return; }
+  _adminCurrentList = res.data;
+  if(!res.data.length){ $('#admTableArea').innerHTML = `<div class="empty-state"><div class="emoji">📭</div>ไม่พบข้อมูล</div>`; return; }
+  $('#admTableArea').innerHTML = `
+  <table class="data-table">
+    <thead><tr><th>รหัส</th><th>ชื่อ-สกุล</th><th>เพศ/อายุ</th><th>BMI</th><th>รอบเอว</th><th>สถานะ</th><th>บันทึกเมื่อ</th><th>จัดการ</th></tr></thead>
+    <tbody>
+      ${res.data.map(r=>{
+        const bmiC = classifyBMI(r.bmi);
+        return `<tr>
+          <td><code>${escapeHtml(r.record_id)}</code></td>
+          <td>${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}</td>
+          <td>${escapeHtml(r.gender)} / ${escapeHtml(r.age)}</td>
+          <td>${escapeHtml(r.bmi)} ${bmiC?`<span class="badge badge-${bmiC.tone}">${bmiC.label}</span>`:''}</td>
+          <td>${escapeHtml(r.waist_cm)} ซม.</td>
+          <td>${r.record_status==='deleted'?'<span class="badge badge-red">ลบแล้ว</span>':'<span class="badge badge-green">ใช้งาน</span>'}</td>
+          <td>${fmtDate(r.created_at)}</td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-secondary btn-sm" onclick="viewRecordDetail('${r.record_id}')">👁</button>
+            <button class="btn btn-secondary btn-sm" onclick="openRecordEditor('${r.record_id}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteRecordConfirm('${r.record_id}')">🗑</button>
+          </td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+}
+function exportCurrentCsv(){
+  if(!_adminCurrentList.length) return toast('ไม่มีข้อมูลให้ส่งออก','warn');
+  const csv = toCsv(_adminCurrentList, FIELD_KEYS);
+  downloadFile('health_check_records_'+Date.now()+'.csv', csv, 'text/csv;charset=utf-8');
+  toast('ส่งออกไฟล์ CSV (เปิดได้ด้วย Excel/Google Sheets) สำเร็จ','success');
+}
+function exportCurrentJson(){
+  if(!_adminCurrentList.length) return toast('ไม่มีข้อมูลให้ส่งออก','warn');
+  downloadFile('health_check_records_'+Date.now()+'.json', JSON.stringify(_adminCurrentList,null,2), 'application/json');
+  toast('ส่งออกไฟล์ JSON สำเร็จ','success');
+}
+async function viewRecordDetail(id){
+  const res = await DataAPI.get(id);
+  if(!res.success) return toast(res.message||'ไม่พบข้อมูล','error');
+  const r = res.data;
+  const rows = FIELD_SCHEMA.filter(f=>!f.system).map(f=>`<tr><td style="color:var(--text-muted);">${escapeHtml(f.label)}</td><td><b>${f.type==='boolean'?(r[f.key]===true||r[f.key]==='TRUE'?'✔ มี':'—'):escapeHtml(r[f.key]??'-')}</b></td></tr>`).join('');
+  openModal(`
+  <div class="modal-head"><h3>รายละเอียดรายการ ${escapeHtml(r.record_id)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="table-wrap"><table class="data-table">${rows}</table></div>
+  <div class="actions-row"><button class="btn btn-secondary" onclick="closeModal()">ปิด</button></div>`);
+}
+function deleteRecordConfirm(id){
+  confirmDialog('ยืนยันการลบข้อมูล', `ต้องการลบรายการ ${id} หรือไม่? ระบบจะเปลี่ยนสถานะเป็น "ลบแล้ว" (Soft Delete) และสามารถกู้คืนได้ผ่าน Google Sheets`, async ()=>{
+    const res = await DataAPI.remove(id);
+    toast(res.message||(res.success?'ลบสำเร็จ':'ลบไม่สำเร็จ'), res.success?'success':'error');
+    loadAdminRecords();
+  });
+}
+function openRecordEditor(id){
+  const isNew = !id;
+  const rec = isNew ? {} : _adminCurrentList.find(r=>r.record_id===id) || {};
+  const fields = FIELD_SCHEMA.filter(f=>!f.system);
+  const body = fields.map(f=>{
+    if(f.type==='boolean') return `<div class="field"><label>${escapeHtml(f.label)}</label><select class="input" id="ed_${f.key}"><option value="false" ${!rec[f.key]?'selected':''}>ไม่มี</option><option value="true" ${rec[f.key]===true||rec[f.key]==='TRUE'?'selected':''}>มี</option></select></div>`;
+    if(f.type==='select') return `<div class="field"><label>${escapeHtml(f.label)}</label><select class="input" id="ed_${f.key}">${f.options.map(o=>`<option value="${o}" ${rec[f.key]===o?'selected':''}>${o}</option>`).join('')}</select></div>`;
+    return `<div class="field"><label>${escapeHtml(f.label)}${f.unit?` (${f.unit})`:''}</label><input class="input" id="ed_${f.key}" type="${f.type==='number'?'number':'text'}" value="${escapeHtml(rec[f.key]??'')}"></div>`;
+  }).join('');
+  const m = openModal(`
+  <div class="modal-head"><h3>${isNew?'➕ เพิ่มรายการใหม่':'✏️ แก้ไขรายการ '+escapeHtml(id)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+  <div class="grid grid-2">${body}</div>
+  <div class="actions-row"><button class="btn btn-primary" id="edSave">บันทึก</button><button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button></div>`);
+  $('#edSave',m).addEventListener('click', async ()=>{
+    const payload = isNew ? {} : {record_id:id};
+    fields.forEach(f=>{
+      const inp = $('#ed_'+f.key,m); let v = inp.value;
+      if(f.type==='boolean') v = v==='true';
+      payload[f.key]=v;
+    });
+    confirmDialog(isNew?'ยืนยันการเพิ่มรายการ':'ยืนยันการแก้ไขข้อมูล','กรุณาตรวจสอบข้อมูลก่อนบันทึก ต้องการดำเนินการต่อหรือไม่?', async ()=>{
+      const res = isNew ? await DataAPI.create(payload) : await DataAPI.update(payload);
+      toast(res.message||(res.success?'บันทึกสำเร็จ':'บันทึกไม่สำเร็จ'), res.success?'success':'error');
+      if(res.success){ closeModal(); loadAdminRecords(); }
+    }, false);
+  });
+}
+
+function renderAdminSettings(){
+  const branding = JSON.parse(localStorage.getItem(LS_KEYS.branding)||'{}');
+  const body = $('#adminTabBody');
+  body.innerHTML = `
+  <div class="grid grid-2">
+    <div class="card-solid">
+      <div class="section-title"><div class="ico">🎨</div><div><h3>ปรับแต่งแบรนด์ระบบ</h3><small>ค่าเริ่มต้นกำหนดจาก CONFIG ในไฟล์ index.html ปรับที่นี่เพื่อ override ชั่วคราว</small></div></div>
+      <div class="field"><label>ชื่อระบบ</label><input class="input" id="setName" value="${escapeHtml(branding.systemName||CONFIG.systemName)}"></div>
+      <div class="field"><label>ชื่อหน่วยงาน</label><input class="input" id="setOrg" value="${escapeHtml(branding.orgName||CONFIG.orgName)}"></div>
+      <div class="field"><label>โลโก้ (Emoji)</label><input class="input" id="setLogo" value="${escapeHtml(branding.logoEmoji||CONFIG.logoEmoji)}"></div>
+      <div class="grid grid-2">
+        <div class="field"><label>สีหลัก</label><input class="input" type="color" id="setColor1" value="${branding.primaryColor||CONFIG.primaryColor}"></div>
+        <div class="field"><label>สีรอง</label><input class="input" type="color" id="setColor2" value="${branding.secondaryColor||CONFIG.secondaryColor}"></div>
+      </div>
+      <button class="btn btn-primary" id="btnSaveBrand">บันทึกการปรับแต่ง</button>
+      <button class="btn btn-ghost btn-sm" id="btnResetBrand">↺ คืนค่าเริ่มต้นจาก CONFIG</button>
+    </div>
+    <div class="card-solid">
+      <div class="section-title"><div class="ico">🔑</div><div><h3>เปลี่ยนบัญชีผู้ดูแลระบบ</h3><small>ควรเปลี่ยนจาก admin/admin ก่อนเผยแพร่ใช้งานจริง</small></div></div>
+      <div class="field"><label>ชื่อผู้ใช้ใหม่</label><input class="input" id="newUser" placeholder="username ใหม่"></div>
+      <div class="field"><label>รหัสผ่านใหม่</label><input class="input" type="password" id="newPass" placeholder="อย่างน้อย 4 ตัวอักษร"></div>
+      <button class="btn btn-primary" id="btnChangeCred">เปลี่ยนบัญชีผู้ดูแล</button>
+      <div class="info-box" style="margin-top:14px;">
+      🔗 <b>Dashboard:</b> ${DataAPI.isDashboardDemo() ? 'Demo Mode (Local Storage)' : 'เชื่อมต่อ Google Sheets จริงแล้ว'}<br>
+      🗂️ <b>บันทึกข้อมูล / ผู้ดูแลระบบ:</b> ${DataAPI.isDemo() ? 'Demo Mode (Local Storage)' : 'เชื่อมต่อ Google Sheets จริงแล้ว'}<br>
+      แก้ไขตัวแปร <code>GAS_API_URL</code> และ <code>dashboardOnlyRemote</code> ในไฟล์ index.html เพื่อเปลี่ยนขอบเขตการเชื่อมต่อ Google Apps Script</div>
+    </div>
+  </div>`;
+  $('#btnSaveBrand').addEventListener('click', ()=>{
+    const b = { systemName:$('#setName').value, orgName:$('#setOrg').value, logoEmoji:$('#setLogo').value, primaryColor:$('#setColor1').value, secondaryColor:$('#setColor2').value };
+    localStorage.setItem(LS_KEYS.branding, JSON.stringify(b));
+    applyBranding(); toast('บันทึกการปรับแต่งสำเร็จ','success');
+  });
+  $('#btnResetBrand').addEventListener('click', ()=>{ localStorage.removeItem(LS_KEYS.branding); applyBranding(); renderAdminSettings(); toast('คืนค่าเริ่มต้นแล้ว','warn'); });
+  $('#btnChangeCred').addEventListener('click', async ()=>{
+    const u=$('#newUser').value.trim(), p=$('#newPass').value;
+    if(!u||p.length<4) return toast('กรุณากรอกชื่อผู้ใช้และรหัสผ่านอย่างน้อย 4 ตัวอักษร','error');
+    const res = await DataAPI.changeAdminCredential(u,p);
+    toast(res.message||(res.success?'เปลี่ยนสำเร็จ':'ไม่สำเร็จ'), res.success?'success':'error');
+    if(res.success){ localStorage.removeItem(LS_KEYS.token); setTimeout(()=>setRoute('admin'),1200); }
+  });
+}
+
+/* ==========================================================================
+   INIT
+   ========================================================================== */
+function init(){
+  applyBranding();
+  const initialRoute = (location.hash||'#form').slice(1).split('?')[0] || 'form';
+  state.route = initialRoute;
+  $$('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.route===initialRoute));
+  render();
+}
+init();
+</script>
+</body>
+</html>
